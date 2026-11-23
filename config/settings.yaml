@@ -20,6 +20,13 @@ download_workers: 4
 download_retries: 3
 download_timeout: 300   # seconds per request (connect/read)
 
+# Data nodes whose SSL certificate is broken (e.g. expired) and which we still
+# download from WITHOUT certificate verification. Only applied to files with a
+# published sha256 (from the CEDA index, fetched over verified HTTPS), and every
+# file is rejected unless it matches. Remove a host once its certificate is fixed.
+insecure_ssl_hosts:
+  - esg-earthlab.iap.ac.cn   # CAS-ESM2-1-CSM; certificate expired (seen 2026-11-22)
+
 # CMIP6-style "table" folder names are built as <realm prefix><frequency>,
 # e.g. atmos + mon -> Amon, ocean + mon -> Omon, seaIce + day -> SIday.
 realm_prefix:

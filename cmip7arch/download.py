@@ -48,9 +48,16 @@ def fetch_file(rf: RemoteFile, dest: Path, settings: Settings) -> str:
     last_err = None
     for attempt in range(settings.download_retries):
         for url in rf.urls:
+            host = url.split("/")[2].split(":")[0]
+            # Hosts listed in insecure_ssl_hosts (e.g. expired certificates) are fetched without
+            # certificate verification, but only when a published sha256 exists to verify against.
+            verify = not (host in settings.insecure_ssl_hosts and rf.sha256)
             try:
+                if not verify:
+                    log.info("  %s: fetching from %s without SSL certificate verification "
+                             "(insecure_ssl_hosts); integrity checked by sha256", rf.name, host)
                 h = hashlib.sha256()
-                with requests.get(url, stream=True, timeout=settings.download_timeout,
+                with requests.get(url, stream=True, timeout=settings.download_timeout, verify=verify,
                                   headers={"User-Agent": "cmip7arch"}) as r:
                     r.raise_for_status()
                     with part.open("wb") as f:
@@ -62,6 +69,8 @@ def fetch_file(rf: RemoteFile, dest: Path, settings: Settings) -> str:
                     raise IOError(f"size mismatch {part.stat().st_size} != {rf.size}")
                 if rf.sha256 and digest != rf.sha256:
                     raise IOError("checksum mismatch")
+                if not verify and digest != rf.sha256:  # belt and braces: never accept unverified
+                    raise IOError("unverified download without checksum")
                 part.replace(dest)
                 return digest
             except Exception as e:  # noqa: BLE001 - try next mirror / retry

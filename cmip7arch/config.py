@@ -22,6 +22,7 @@ class Settings:
     download_workers: int
     download_retries: int
     download_timeout: int
+    insecure_ssl_hosts: set
     realm_prefix: dict
     catalog_dir: Path
     site_dir: Path
@@ -41,6 +42,7 @@ def load_settings(path: Path | None = None) -> Settings:
         download_workers=int(s.get("download_workers", 4)),
         download_retries=int(s.get("download_retries", 3)),
         download_timeout=int(s.get("download_timeout", 300)),
+        insecure_ssl_hosts=set(s.get("insecure_ssl_hosts") or []),
         realm_prefix=s.get("realm_prefix", {}),
         catalog_dir=REPO_ROOT / s.get("catalog_dir", "catalog"),
         site_dir=REPO_ROOT / s.get("site_dir", "docs"),
