@@ -1,0 +1,29 @@
+#!/bin/bash
+#PBS -N cmip7arch-update
+#PBS -A P04010022
+#PBS -q casper
+#PBS -l select=1:ncpus=2:mem=8GB
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o /glade/u/home/islas/python/CMIP7_hackathon_2027_DATA/logs/
+#
+# Weekly CMIP7 archive update: query ESGF (fresh), download new/updated data,
+# move retracted data aside, rebuild the catalog + website, and push to GitHub.
+#   submit by hand:  qsub scripts/update.pbs
+#   extra cmip7arch options (e.g. a dry run): qsub -v CMIP7ARCH_ARGS="--dry-run" scripts/update.pbs
+set -u
+REPO=/glade/u/home/islas/python/CMIP7_hackathon_2027_DATA
+cd "$REPO"
+mkdir -p logs
+LOG=logs/update_$(date +%Y%m%d_%H%M).log
+
+echo "cmip7arch update on $(hostname), job ${PBS_JOBID:-interactive}" | tee "$LOG"
+bin/cmip7arch update --refresh ${CMIP7ARCH_ARGS:-} >> "$LOG" 2>&1
+rc=$?
+echo "cmip7arch exit code $rc" | tee -a "$LOG"
+
+# Publish catalog + website only after a real (non-dry) run that got as far as writing them
+if [ $rc -eq 0 ] && [[ "${CMIP7ARCH_ARGS:-}" != *--dry-run* ]]; then
+    scripts/publish_site.sh >> "$LOG" 2>&1 || echo "publish failed (see log)" | tee -a "$LOG"
+fi
+exit $rc

@@ -40,7 +40,24 @@ bin/cmip7arch site               # rebuild docs/index.html from catalog/status.j
 Re-running is always safe: verified files are never re-downloaded, and failed downloads
 are retried on the next run.
 
-After an `update`, commit and push `catalog/` and `docs/` to refresh the website.
+After an `update`, run `scripts/publish_site.sh` to commit and push `catalog/` and `docs/`
+(this refreshes the website).
+
+### Running a big update as a batch job
+
+Large downloads are better run on a Casper compute node than on a login node:
+
+```bash
+qsub scripts/update.pbs                                  # update --refresh, then publish the site
+qsub -v CMIP7ARCH_ARGS="--dry-run" scripts/update.pbs    # just report what would be fetched
+```
+
+The job is charged to project P04010022 and logs to `logs/update_<date>.log`. Only one
+`check`/`update` can run at a time (lock file `CMIP7/.cmip7arch.lock`); a second one exits
+straight away.
+
+Index results are cached for 6 hours in `.cache/` (so `check` then `update` queries ESGF
+once); add `--refresh` to force a fresh query.
 
 ## What to download: `config/wishlist.yaml`
 

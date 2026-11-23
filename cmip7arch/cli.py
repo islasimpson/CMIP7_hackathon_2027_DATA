@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import logging
 import os
 import sys
@@ -60,6 +61,17 @@ def main(argv=None):
     if a.command == "site":
         print(site.build(settings))
         return 0
+
+    # Only one check/update at a time (e.g. a scheduled run overlapping a manual one)
+    settings.archive_root.mkdir(parents=True, exist_ok=True)
+    lock = open(settings.archive_root / ".cmip7arch.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        log.error("another cmip7arch check/update is running (lock %s); exiting", lock.name)
+        return 4
+    lock.write(f"{os.getpid()} {os.uname().nodename}\n")
+    lock.flush()
 
     try:
         reqs = load_wishlist()
