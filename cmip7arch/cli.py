@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import logging
 import os
 import sys
 from dataclasses import asdict
 
 from . import archive, catalog, download, site, stac
+from .runlock import LockHeld, RunLock
 from .config import load_settings, load_wishlist
 
 log = logging.getLogger("cmip7arch")
@@ -62,17 +62,21 @@ def main(argv=None):
         print(site.build(settings))
         return 0
 
-    # Only one check/update at a time (e.g. a scheduled run overlapping a manual one)
+    # Only one check/update at a time, across all nodes (see runlock.py)
     settings.archive_root.mkdir(parents=True, exist_ok=True)
-    lock = open(settings.archive_root / ".cmip7arch.lock", "w")
+    lock = RunLock(settings.archive_root / ".cmip7arch.runlock")
     try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        log.error("another cmip7arch check/update is running (lock %s); exiting", lock.name)
+        lock.acquire()
+    except LockHeld as e:
+        log.error("%s", e)
         return 4
-    lock.write(f"{os.getpid()} {os.uname().nodename}\n")
-    lock.flush()
+    try:
+        return _run(a, settings)
+    finally:
+        lock.release()
 
+
+def _run(a, settings):
     try:
         reqs = load_wishlist()
     except ValueError as e:
