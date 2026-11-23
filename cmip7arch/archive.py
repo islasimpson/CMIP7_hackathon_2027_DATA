@@ -165,10 +165,11 @@ def plan(settings: Settings, requests_: list[Request], remote_all: list[RemoteDa
         # member selection
         for key, dss in cand.items():
             dss.sort(key=lambda d: _member_key(d.member))
-            if isinstance(req.members, int):
-                dss = dss[: req.members]
-            elif isinstance(req.members, list):
-                dss = [d for d in dss if d.member in req.members]
+            sel = req.members_for(key[0])
+            if isinstance(sel, int):
+                dss = dss[:sel]
+            elif isinstance(sel, list):
+                dss = [d for d in dss if d.member in sel]
             for d in dss:
                 wanted[dataset_relpath(settings, d)] = d
 

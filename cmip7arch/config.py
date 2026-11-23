@@ -55,7 +55,7 @@ class Request:
     frequency: str
     variables: list[str]           # branded names, may contain wildcards
     region: str = "glb"
-    members: object = "all"        # "all" | int | list[str]
+    members: object = "all"        # "all" | int | list[str] | {experiment: spec, default: spec}
     models: list[str] | None = None
     exclude_models: list[str] = field(default_factory=list)
 
@@ -66,10 +66,39 @@ class Request:
     def matches_branded(self, branded: str) -> bool:
         return any(fnmatch.fnmatchcase(branded, pat) for pat in self.variables)
 
+    def members_for(self, experiment: str):
+        """Member selection for one experiment ("all", an int, or a list of variant labels)."""
+        m = self.members
+        if isinstance(m, dict):
+            m = m.get(experiment, m.get("default", "all"))
+        return m
+
     def matches_model(self, source_id: str) -> bool:
         if self.models and source_id not in self.models:
             return False
         return source_id not in self.exclude_models
+
+
+def _validate(n: int, r: dict) -> None:
+    """Catch common wishlist mistakes with a readable message instead of a traceback."""
+    where = f"wishlist request #{n}"
+    for key in ("experiments", "frequency", "variables"):
+        if key not in r:
+            raise ValueError(f"{where}: missing '{key}'")
+    exps = r["experiments"] if isinstance(r["experiments"], list) else [r["experiments"]]
+    for name, vals in (("experiments", exps), ("variables", r["variables"])):
+        if not isinstance(vals, list) or not all(isinstance(v, str) for v in vals):
+            raise ValueError(f"{where}: '{name}' must be a flat list of names, e.g. "
+                             f"[a, b] or one '- name' per line (got {vals!r})")
+    for v in r["variables"]:
+        if "_" not in v:
+            raise ValueError(f"{where}: '{v}' is not a branded name (<variable>_<branding>)")
+    m = r.get("members", "all")
+    specs = m.values() if isinstance(m, dict) else [m]
+    for spec in specs:
+        if not (spec == "all" or (isinstance(spec, int) and spec > 0)
+                or (isinstance(spec, list) and all(isinstance(x, str) for x in spec))):
+            raise ValueError(f"{where}: bad 'members' value {spec!r} (use all, N, or a list)")
 
 
 def load_wishlist(path: Path | None = None) -> list[Request]:
@@ -77,8 +106,12 @@ def load_wishlist(path: Path | None = None) -> list[Request]:
     w = yaml.safe_load(path.read_text()) or {}
     defaults = w.get("defaults") or {}
     out = []
-    for r in w.get("requests") or []:
+    for n, r in enumerate(w.get("requests") or [], 1):
         merged = {**defaults, **r}
+        # per-experiment member dicts in a request extend the defaults' dict
+        if isinstance(defaults.get("members"), dict) and isinstance(r.get("members"), dict):
+            merged["members"] = {**defaults["members"], **r["members"]}
+        _validate(n, merged)
         exps = merged["experiments"]
         out.append(Request(
             experiments=[exps] if isinstance(exps, str) else list(exps),
