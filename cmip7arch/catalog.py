@@ -11,7 +11,7 @@ from .config import Settings
 
 FIELDS = ["experiment", "table", "variable", "source_id", "member", "grid", "status",
           "esgf_version", "local_version", "nfiles", "size_bytes", "institution", "activity",
-          "long_name", "units", "path", "error"]
+          "long_name", "units", "path", "error", "globus"]
 
 
 def _row(settings: Settings, rel: Path, status: str, remote=None, local: LocalDataset | None = None) -> dict:
@@ -28,6 +28,7 @@ def _row(settings: Settings, rel: Path, status: str, remote=None, local: LocalDa
         "long_name": remote.long_name if remote else "",
         "units": remote.units if remote else "",
         "error": "",
+        "globus": (remote.globus[0] if remote and remote.globus else ""),
         "path": str((settings.retracted_dir if status == "retracted" else settings.archive_root) / rel),
     }
 

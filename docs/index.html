@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CMIP7 Data Holdings</title>
+<style>
+:root{--bg:#fff;--fg:#1d2330;--muted:#5d6675;--line:#dfe3ea;--card:#f6f8fb;
+ --ok:#1f7a3f;--okbg:#e3f4e8;--av:#8a5a00;--avbg:#fff1d6;--out:#a03a00;--outbg:#ffe4d6;--re:#9b1c31;--rebg:#fbe0e5;--lo:#4b5563;--lobg:#eceff3;--accent:#2457c5}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#12151b;--fg:#e6e9ef;--muted:#9aa3b2;--line:#2a303b;--card:#1a1f27;
+ --ok:#7bd99a;--okbg:#173322;--av:#f2c46b;--avbg:#3a2d10;--out:#ffab7a;--outbg:#3d2214;--re:#ff8fa3;--rebg:#3d1520;--lo:#c2c8d2;--lobg:#262c36;--accent:#8fb0ff}}
+:root[data-theme="dark"]{--bg:#12151b;--fg:#e6e9ef;--muted:#9aa3b2;--line:#2a303b;--card:#1a1f27;
+ --ok:#7bd99a;--okbg:#173322;--av:#f2c46b;--avbg:#3a2d10;--out:#ffab7a;--outbg:#3d2214;--re:#ff8fa3;--rebg:#3d1520;--lo:#c2c8d2;--lobg:#262c36;--accent:#8fb0ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.6rem;margin:0 0 4px}h2{font-size:1.25rem;margin:36px 0 8px}h3{font-size:1.05rem;margin:24px 0 6px}
+.muted{color:var(--muted)}code{font:0.88em ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--card);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:1.4rem}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:0.9rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:var(--card);font-weight:600}tr:last-child td{border-bottom:0}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.b{display:inline-block;padding:1px 8px;border-radius:10px;font-size:0.8rem;font-weight:600}
+.downloaded{color:var(--ok);background:var(--okbg)}.available{color:var(--av);background:var(--avbg)}
+.outdated,.incomplete{color:var(--out);background:var(--outbg)}.retracted{color:var(--re);background:var(--rebg)}
+.local-only{color:var(--lo);background:var(--lobg)}.failing{color:var(--re);background:var(--rebg);cursor:help}
+details{margin:8px 0}summary{cursor:pointer;color:var(--accent)}
+input[type=search]{width:100%;max-width:360px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+.legend span{margin-right:8px}
+</style>
+</head>
+<body><main>
+<h1>CMIP7 Data Holdings</h1>
+<p class="muted">What CMIP7 data is on ESGF for our wishlist, and what is already on GLADE at
+<code>/glade/campaign/cgd/cas/CMIP7</code>. Updated 2026-11-23 05:03 UTC.</p>
+
+<div class="cards">
+ <div class="card"><b>9</b>models available</div>
+ <div class="card"><b>56</b>datasets downloaded</div>
+ <div class="card"><b>1</b>datasets not yet downloaded</div>
+ <div class="card"><b>0</b>retracted</div>
+ <div class="card"><b>22.0 GB</b>on disk (wishlist)</div>
+</div>
+
+<p class="legend"><span class="b downloaded">downloaded</span><span class="b available">available</span>
+<span class="b outdated">outdated</span><span class="b incomplete">incomplete</span>
+<span class="b retracted">retracted</span><span class="b local-only">local-only</span>
+<span class="b failing">⚠ download failing</span> <span class="muted">(hover for details; usually a data-node problem on ESGF)</span></p>
+
+<h2>Overview</h2>
+<p class="muted">Number of models downloaded / available on ESGF, for each variable and experiment.</p>
+<div class="scroll"><table>
+<tr><th>Table</th><th>Variable</th><th>historical</th></tr>
+
+<tr><td>Amon</td><td><a href="#Amon-tas_tavg-h2m-hxy-u"><code>tas_tavg-h2m-hxy-u</code></a></td>
+<td class="num">8 / 9</td></tr>
+
+</table></div>
+
+<h2>By variable</h2>
+<input type="search" id="q" placeholder="Filter models…" oninput="filt(this.value)">
+
+<h3 id="Amon-tas_tavg-h2m-hxy-u">Amon · <code>tas_tavg-h2m-hxy-u</code></h3>
+<p class="muted">Near-Surface Air Temperature [K]</p>
+
+<details open><summary>historical — 9 models</summary>
+<div class="scroll"><table class="f">
+<tr><th>Model</th><th>Institution</th><th>Grid</th><th class="num">Members (dl / avail)</th><th>Version(s)</th><th>Status</th></tr>
+
+<tr data-m="access-esm1-6"><td>ACCESS-ESM1-6</td><td>ACCESS-Consortium</td><td>g115</td>
+<td class="num">10 / 10</td><td>v20261008, v20261009</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="canesm6-0-mr"><td>CanESM6-0-MR</td><td>CCCma</td><td>g150</td>
+<td class="num">25 / 25</td><td>v20260629</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="cas-esm2-1-csm"><td>CAS-ESM2-1-CSM</td><td>CAS</td><td>g134</td>
+<td class="num">1 / 1</td><td>v20260927</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="cnrm-esm2-1e"><td>CNRM-ESM2-1e</td><td>CNRM-CERFACS</td><td>g105</td>
+<td class="num">1 / 1</td><td>v20261002</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="fgoals-g3-5"><td>FGOALS-g3-5</td><td>CAS</td><td>g100</td>
+<td class="num">6 / 6</td><td>v20260804, v20260805</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="kace-2-0-g"><td>KACE-2-0-G</td><td>NIMS-KMA</td><td>g110</td>
+<td class="num">0 / 1</td><td>v20260820</td>
+<td><span class="b available">available</span> <span class="b failing" title="tas_tavg-h2m-hxy-u_mon_glb_g110_KACE-2-0-G_historical_r1i1p1f1_185001-202112.nc: all attempts failed (size mismatch 228578661 != 109350766)">⚠ download failing</span></td></tr>
+
+<tr data-m="ukcm2-0-ll"><td>UKCM2-0-LL</td><td>UKNCSP</td><td>g110</td>
+<td class="num">5 / 5</td><td>v20260909, v20260918, v20260921, v20260922</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="ukcm2a-0-hh"><td>UKCM2a-0-HH</td><td>UKNCSP</td><td>g137</td>
+<td class="num">3 / 3</td><td>v20260826, v20260928</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+<tr data-m="ukesm1-3-ll"><td>UKESM1-3-LL</td><td>UKNCSP</td><td>g110</td>
+<td class="num">5 / 5</td><td>v20261004, v20261019, v20261020, v20261022, v20261023</td>
+<td><span class="b downloaded">downloaded</span></td></tr>
+
+</table></div>
+<p class="muted">Path: <code>/glade/campaign/cgd/cas/CMIP7/historical/Amon/tas_tavg-h2m-hxy-u/&lt;model&gt;/&lt;member&gt;/&lt;grid&gt;/</code></p>
+</details>
+
+
+
+
+
+<h2>About CMIP7 variable names</h2>
+<p>CMIP7 identifies variables by a <em>branded name</em>, <code>&lt;variable&gt;_&lt;branding&gt;</code>. The branding has four parts:
+temporal (<code>tavg</code> mean, <code>tmaxavg</code> monthly mean of daily max, <code>tpt</code> instantaneous…),
+vertical (<code>h2m</code> 2&nbsp;m height, <code>u</code> unspecified, <code>p19</code> 19 pressure levels…),
+horizontal (<code>hxy</code> lat-lon field, <code>hy</code> zonal mean…) and area (<code>u</code> all, <code>sea</code>, <code>lnd</code>…).
+For example, <code>tas_tavg-h2m-hxy-u</code> is the CMIP6 <code>Amon/tas</code> equivalent.
+The <code>Amon</code>-style folders come from realm + frequency.</p>
+<p class="muted">Data source: ESGF STAC index at <code>https://api.stac.esgf.ceda.ac.uk</code>. Generated by
+<code>cmip7arch</code>; the full list is in <a href="datasets.csv">datasets.csv</a>.</p>
+</main>
+<script>
+function filt(q){q=q.toLowerCase();document.querySelectorAll('table.f tr[data-m]').forEach(function(r){r.style.display=r.dataset.m.indexOf(q)>=0?'':'none';});}
+</script>
+</body></html>

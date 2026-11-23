@@ -54,6 +54,7 @@ class RemoteDataset:
     long_name: str = ""
     units: str = ""
     files: list[RemoteFile] = field(default_factory=list)
+    globus: list[str] = field(default_factory=list)   # Globus web-app links, if published
 
     @property
     def dataset_id(self) -> str:
@@ -63,16 +64,20 @@ class RemoteDataset:
 def _parse_item(item: dict) -> RemoteDataset:
     p = item["properties"]
     realm = p.get(P + "realm") or [""]
-    files = []
+    files, globus = [], []
     for name, a in (item.get("assets") or {}).items():
-        if "data" not in (a.get("roles") or []) and not name.endswith(".nc"):
+        if a.get("protocol") == "globus" or "app.globus.org" in a.get("href", ""):
+            # dataset-level Globus web-app link: record it, it is not a file
+            globus.append(a["href"])
+            continue
+        if not a.get("href", "").endswith(".nc"):
             continue
         urls = [a["href"]]
         for alt in (a.get("alternate") or {}).values():
             if isinstance(alt, dict) and alt.get("href") and alt["href"] not in urls:
                 urls.append(alt["href"])
         files.append(RemoteFile(
-            name=name if name.endswith(".nc") else a["href"].rsplit("/", 1)[-1],
+            name=a["href"].rsplit("/", 1)[-1],
             urls=urls,
             size=a.get("file:size"),
             checksum=a.get("file:checksum"),
@@ -102,6 +107,7 @@ def _parse_item(item: dict) -> RemoteDataset:
         long_name=p.get(P + "variable_long_name", ""),
         units=p.get(P + "variable_units", ""),
         files=files,
+        globus=globus,
     )
 
 
