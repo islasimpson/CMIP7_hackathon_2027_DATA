@@ -1,0 +1,5 @@
+#!/bin/bash
+# Wrapper: run cmip7arch with the NCAR NPL conda environment.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="${CMIP7ARCH_PYTHON:-/glade/u/apps/opt/conda/envs/npl/bin/python}"
+cd "$REPO" && exec "$PY" -m cmip7arch "$@"

@@ -1,0 +1,37 @@
+# Archive-wide settings for cmip7arch
+
+# Root of the local archive on GLADE
+archive_root: /glade/campaign/cgd/cas/CMIP7
+
+# Where retracted datasets are moved to (relative to archive_root); the
+# relative path below this directory mirrors the main archive.
+retracted_dir: retracted
+
+# Staging area for in-progress downloads (relative to archive_root)
+incoming_dir: incoming
+
+# ESGF-NG STAC search API (global index, includes all data nodes)
+stac_url: https://api.stac.esgf.ceda.ac.uk
+stac_collection: CMIP7
+stac_page_limit: 100
+
+# Parallel HTTPS downloads
+download_workers: 4
+download_retries: 3
+download_timeout: 300   # seconds per request (connect/read)
+
+# CMIP6-style "table" folder names are built as <realm prefix><frequency>,
+# e.g. atmos + mon -> Amon, ocean + mon -> Omon, seaIce + day -> SIday.
+realm_prefix:
+  atmos: A
+  atmosChem: AER
+  aerosol: AER
+  ocean: O
+  ocnBgchem: O
+  seaIce: SI
+  land: L
+  landIce: LI
+
+# Where generated catalogs and the website go (relative to the repo root)
+catalog_dir: catalog
+site_dir: docs
