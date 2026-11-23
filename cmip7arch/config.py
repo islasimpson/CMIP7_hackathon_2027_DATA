@@ -19,6 +19,10 @@ class Settings:
     stac_url: str
     stac_collection: str
     stac_page_limit: int
+    stac_min_interval: float
+    stac_cache_hours: float
+    cache_dir: Path
+    max_per_host: int
     download_workers: int
     download_retries: int
     download_timeout: int
@@ -39,6 +43,10 @@ def load_settings(path: Path | None = None) -> Settings:
         stac_url=s["stac_url"].rstrip("/"),
         stac_collection=s.get("stac_collection", "CMIP7"),
         stac_page_limit=int(s.get("stac_page_limit", 100)),
+        stac_min_interval=float(s.get("stac_min_interval", 2.0)),
+        stac_cache_hours=float(s.get("stac_cache_hours", 6)),
+        cache_dir=REPO_ROOT / ".cache",
+        max_per_host=int(s.get("max_per_host", 2)),
         download_workers=int(s.get("download_workers", 4)),
         download_retries=int(s.get("download_retries", 3)),
         download_timeout=int(s.get("download_timeout", 300)),

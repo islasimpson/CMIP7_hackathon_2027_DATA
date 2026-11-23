@@ -5,7 +5,9 @@ import datetime as dt
 import hashlib
 import logging
 import shutil
+import threading
 import time
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -38,6 +40,33 @@ def _verify(path: Path, rf: RemoteFile) -> tuple[bool, str]:
     return True, digest
 
 
+_host_lock = threading.Lock()
+_host_sems: dict[str, threading.BoundedSemaphore] = {}
+
+
+def _host_slot(host: str, settings: Settings) -> threading.BoundedSemaphore:
+    """Limit simultaneous downloads from one data node (settings.max_per_host)."""
+    with _host_lock:
+        if host not in _host_sems:
+            _host_sems[host] = threading.BoundedSemaphore(settings.max_per_host)
+        return _host_sems[host]
+
+
+def _interleave_by_host(jobs: list) -> list:
+    """Round-robin jobs across data nodes so the per-node limit doesn't idle the workers."""
+    by_host = defaultdict(list)
+    for job in jobs:
+        by_host[job[1].urls[0].split("/")[2]].append(job)
+    queues = list(by_host.values())
+    out = []
+    while queues:
+        for q in list(queues):
+            out.append(q.pop(0))
+            if not q:
+                queues.remove(q)
+    return out
+
+
 def fetch_file(rf: RemoteFile, dest: Path, settings: Settings) -> str:
     """Download rf to dest (via dest.part), verify, return sha256. Reuses a verified dest."""
     ok, digest = _verify(dest, rf)
@@ -57,8 +86,9 @@ def fetch_file(rf: RemoteFile, dest: Path, settings: Settings) -> str:
                     log.info("  %s: fetching from %s without SSL certificate verification "
                              "(insecure_ssl_hosts); integrity checked by sha256", rf.name, host)
                 h = hashlib.sha256()
-                with requests.get(url, stream=True, timeout=settings.download_timeout, verify=verify,
-                                  headers={"User-Agent": "cmip7arch"}) as r:
+                with _host_slot(host, settings), \
+                        requests.get(url, stream=True, timeout=settings.download_timeout, verify=verify,
+                                     headers={"User-Agent": "cmip7arch"}) as r:
                     r.raise_for_status()
                     with part.open("wb") as f:
                         for b in r.iter_content(CHUNK):
@@ -126,6 +156,7 @@ def run(items: list[PlanItem], settings: Settings, dry_run: bool = False) -> dic
             if local_row and f.sha256 and local_row.sha256 == f.sha256:
                 continue
             jobs.append((it, f))
+    jobs = _interleave_by_host(jobs)
     stats["files"] = len(jobs)
     stats["bytes"] = sum(f.size or 0 for _, f in jobs)
     if dry_run:

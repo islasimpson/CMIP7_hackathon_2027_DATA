@@ -14,9 +14,17 @@ incoming_dir: incoming
 stac_url: https://api.stac.esgf.ceda.ac.uk
 stac_collection: CMIP7
 stac_page_limit: 100
+# Be gentle with the index so it doesn't throttle/block us: requests are sent one
+# at a time, at least this many seconds apart, and results are cached locally
+# (repo .cache/) so `check` followed by `update` only queries once.
+# `--refresh` on the command line ignores the cache.
+stac_min_interval: 2.0
+stac_cache_hours: 6
 
-# Parallel HTTPS downloads
+# Parallel HTTPS downloads (total), and at most max_per_host at once from any one
+# data node.
 download_workers: 4
+max_per_host: 2
 download_retries: 3
 download_timeout: 300   # seconds per request (connect/read)
 

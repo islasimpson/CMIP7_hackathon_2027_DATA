@@ -1,9 +1,12 @@
 """Query the ESGF-NG STAC index for CMIP7 datasets."""
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import requests
 
@@ -111,27 +114,88 @@ def _parse_item(item: dict) -> RemoteDataset:
     )
 
 
-def _get(session: requests.Session, url: str, params=None, retries: int = 4) -> dict:
-    for attempt in range(retries):
-        try:
-            r = session.get(url, params=params, timeout=300)
-            r.raise_for_status()
-            return r.json()
-        except (requests.RequestException, ValueError) as e:
-            if attempt == retries - 1:
-                raise
-            wait = 10 * (attempt + 1)
-            log.warning("STAC request failed (%s); retrying in %ss", e, wait)
+class IndexUnavailable(RuntimeError):
+    """The ESGF index could not be queried (after retries)."""
+
+
+# Backoff schedule (seconds) between attempts; ~10 minutes in total. The CEDA index
+# intermittently drops TLS connections, especially after bursts of requests.
+BACKOFF = [15, 30, 60, 120, 180, 240]
+
+
+class _Client:
+    """One polite, sequential HTTP client for the index: a single keep-alive session,
+    a minimum interval between requests, Retry-After support and backoff."""
+
+    def __init__(self, min_interval: float):
+        self.min_interval = min_interval
+        self.session = requests.Session()
+        self.session.headers["User-Agent"] = "cmip7arch"
+        self._last = 0.0
+
+    def get(self, url: str, params=None) -> dict:
+        for attempt in range(len(BACKOFF) + 1):
+            wait = self.min_interval - (time.monotonic() - self._last)
+            if wait > 0:
+                time.sleep(wait)
+            retry_after = None
+            try:
+                self._last = time.monotonic()
+                r = self.session.get(url, params=params, timeout=300)
+                if r.status_code in (429, 503):
+                    retry_after = r.headers.get("Retry-After")
+                r.raise_for_status()
+                return r.json()
+            except requests.HTTPError as e:
+                code = e.response.status_code if e.response is not None else 0
+                if 400 <= code < 500 and code != 429:
+                    raise                             # a bad query: retrying won't help
+                err = e
+            except (requests.RequestException, ValueError) as e:
+                err = e
+            if attempt == len(BACKOFF):
+                raise IndexUnavailable(f"ESGF index unreachable after {attempt + 1} attempts: {err}")
+            wait = BACKOFF[attempt]
+            if retry_after and retry_after.isdigit():
+                wait = max(wait, int(retry_after))
+            log.warning("index request failed (%s); retrying in %ss", type(err).__name__, wait)
             time.sleep(wait)
-    raise RuntimeError("unreachable")
+        raise RuntimeError("unreachable")
 
 
-def search(settings, experiment: str, frequency: str, variable_id: str, region: str | None = None) -> list[RemoteDataset]:
-    """Return every dataset version (latest, old and retracted) matching the query."""
+_client: _Client | None = None
+
+
+def _get_client(settings) -> _Client:
+    global _client
+    if _client is None:
+        _client = _Client(settings.stac_min_interval)
+    return _client
+
+
+def _quote_list(vals) -> str:
+    return ", ".join(f"'{v}'" for v in vals)
+
+
+def _cache_file(settings, params: dict) -> Path:
+    key = json.dumps({"url": settings.stac_url, "coll": settings.stac_collection, **params}, sort_keys=True)
+    return settings.cache_dir / f"stac_{hashlib.sha1(key.encode()).hexdigest()[:16]}.json"
+
+
+def search(settings, experiment: str, frequency: str, variable_ids, region: str | None = None,
+           refresh: bool = False) -> list[RemoteDataset]:
+    """Every dataset version (latest, old and retracted) for these variables in one experiment.
+
+    variable_ids may be a single root name or a list; a list is sent as one query
+    (variable_id IN (...)) to keep the number of requests to the index small.
+    Results are cached for settings.stac_cache_hours (refresh=True bypasses the cache).
+    """
+    vids = [variable_ids] if isinstance(variable_ids, str) else sorted(variable_ids)
     clauses = [
         f"\"{P}experiment_id\"='{experiment}'",
         f"\"{P}frequency\"='{frequency}'",
-        f"\"{P}variable_id\"='{variable_id}'",
+        (f"\"{P}variable_id\"='{vids[0]}'" if len(vids) == 1
+         else f"\"{P}variable_id\" IN ({_quote_list(vids)})"),
     ]
     if region:
         clauses.append(f"\"{P}region\"='{region}'")
@@ -140,18 +204,32 @@ def search(settings, experiment: str, frequency: str, variable_id: str, region: 
         "filter-lang": "cql2-text",
         "limit": settings.stac_page_limit,
     }
-    url = f"{settings.stac_url}/collections/{settings.stac_collection}/items"
-    out: list[RemoteDataset] = []
-    with requests.Session() as s:
-        s.headers["User-Agent"] = "cmip7arch"
+    label = f"{experiment} {frequency} [{','.join(vids)}] {region or ''}"
+
+    cache = _cache_file(settings, params)
+    items = None
+    if not refresh and cache.exists():
+        age_h = (time.time() - cache.stat().st_mtime) / 3600
+        if age_h < settings.stac_cache_hours:
+            items = json.loads(cache.read_text())
+            log.info("index (cached %.1fh ago): %s -> %d dataset versions", age_h, label, len(items))
+    if items is None:
+        client = _get_client(settings)
+        url = f"{settings.stac_url}/collections/{settings.stac_collection}/items"
+        items = []
         while url:
-            d = _get(s, url, params)
-            for item in d.get("features", []):
-                try:
-                    out.append(_parse_item(item))
-                except KeyError as e:
-                    log.warning("skipping malformed item %s (missing %s)", item.get("id"), e)
+            d = client.get(url, params)
+            items.extend(d.get("features", []))
             nxt = [l["href"] for l in d.get("links", []) if l.get("rel") == "next"]
             url, params = (nxt[0], None) if nxt else (None, None)
-    log.info("STAC: %s %s %s %s -> %d dataset versions", experiment, frequency, variable_id, region or "", len(out))
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(items))
+        log.info("index: %s -> %d dataset versions", label, len(items))
+
+    out: list[RemoteDataset] = []
+    for item in items:
+        try:
+            out.append(_parse_item(item))
+        except KeyError as e:
+            log.warning("skipping malformed item %s (missing %s)", item.get("id"), e)
     return out

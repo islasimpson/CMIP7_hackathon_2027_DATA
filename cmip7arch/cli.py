@@ -18,16 +18,15 @@ from .config import load_settings, load_wishlist
 log = logging.getLogger("cmip7arch")
 
 
-def _query(settings, reqs):
-    remote, seen = [], set()
+def _query(settings, reqs, refresh=False):
+    """One index query per (experiment, frequency, region), covering all variables."""
+    groups: dict[tuple, set] = {}
     for r in reqs:
         for exp in r.experiments:
-            for var in sorted(r.variable_roots()):
-                key = (exp, r.frequency, var, r.region)
-                if key in seen:
-                    continue
-                seen.add(key)
-                remote.extend(stac.search(settings, exp, r.frequency, var, r.region))
+            groups.setdefault((exp, r.frequency, r.region), set()).update(r.variable_roots())
+    remote = []
+    for (exp, freq, region), roots in sorted(groups.items()):
+        remote.extend(stac.search(settings, exp, freq, sorted(roots), region, refresh=refresh))
     return remote
 
 
@@ -46,6 +45,8 @@ def main(argv=None):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["check", "update", "site"])
     ap.add_argument("--dry-run", action="store_true", help="for update: report what would be fetched/moved")
+    ap.add_argument("--refresh", action="store_true",
+                    help="ignore cached index results and query ESGF again")
     ap.add_argument("--no-site", action="store_true", help="don't rebuild the website")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args(argv)
@@ -60,8 +61,17 @@ def main(argv=None):
         print(site.build(settings))
         return 0
 
-    reqs = load_wishlist()
-    remote = _query(settings, reqs)
+    try:
+        reqs = load_wishlist()
+    except ValueError as e:
+        log.error("%s", e)
+        return 2
+    try:
+        remote = _query(settings, reqs, refresh=a.refresh)
+    except stac.IndexUnavailable as e:
+        # Don't write a partial catalog/site or act on incomplete information.
+        log.error("%s\nNothing was changed; try again later.", e)
+        return 3
     local = archive.scan_local(settings)
     items = archive.plan(settings, reqs, remote, local)
     log.info("plan: %s", _summary(items))
